@@ -13,15 +13,23 @@ from scene.cameras import Camera
 import numpy as np
 from utils.general_utils import PILtoTorch
 from utils.graphics_utils import fov2focal
+from PIL import Image
+import torch
 
 WARNED = False
 
 def loadCam(args, id, cam_info, resolution_scale):
-    orig_w, orig_h = cam_info.image.size
-
     if args.resolution in [1, 2, 4, 8]:
-        resolution = round(orig_w/(resolution_scale * args.resolution)), round(orig_h/(resolution_scale * args.resolution))
+        path = cam_info.image_path.replace("images", "images_{}".format(args.resolution))
+        resized_image_rgb = Image.open(path)
+        resized_image_rgb = torch.from_numpy(np.array( resized_image_rgb )) / 255.0
+        if len(resized_image_rgb.shape) == 3:
+            resized_image_rgb =  resized_image_rgb.permute(2, 0, 1)
+        else:
+            resized_image_rgb = resized_image_rgb.unsqueeze(dim=-1).permute(2, 0, 1)
     else:  # should be a type that converts to float
+        image = Image.open(cam_info.image_path)
+        orig_w, orig_h = image.size
         if args.resolution == -1:
             if orig_w > 1600:
                 global WARNED
@@ -38,7 +46,7 @@ def loadCam(args, id, cam_info, resolution_scale):
         scale = float(global_down) * float(resolution_scale)
         resolution = (int(orig_w / scale), int(orig_h / scale))
 
-    resized_image_rgb = PILtoTorch(cam_info.image, resolution)
+        resized_image_rgb = PILtoTorch(image, resolution)
 
     gt_image = resized_image_rgb[:3, ...]
     loaded_mask = None
